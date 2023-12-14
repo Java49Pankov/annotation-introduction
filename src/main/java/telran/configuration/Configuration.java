@@ -1,7 +1,8 @@
 package telran.configuration;
 
 import java.io.FileInputStream;
-
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.*;
 
@@ -9,20 +10,13 @@ import telran.configuration.annotation.Value;
 
 public class Configuration {
 	private Object obj;
-	private Properties properties;
 
-	public Configuration(Object obj) {
-		this.obj = obj;
-	}
+	private Properties properties;
 
 	public Configuration(Object testObj, String fileName) throws Exception {
 		obj = testObj;
-
-		
 		properties = new Properties();
 		properties.load(new FileInputStream(fileName));
-		String value = (String) properties.getOrDefault("any property name", properties);
-
 	}
 
 	public void configInjection() {
@@ -31,12 +25,11 @@ public class Configuration {
 	}
 
 	void injection(Field field) {
-		Value valueAnnotation = field.getAnnotation(Value.class);
-		String value = valueAnnotation.value();
+		String value = getValue(field);
 		String convertionMethodName = getConvertionMethodName(field.getType().getSimpleName());
 		try {
 			Method method = this.getClass().getDeclaredMethod(convertionMethodName, String.class);
-			Object convertedObject = method.invoke(this, value); // TODO updating HW#55
+			Object convertedObject = method.invoke(this, value);
 			field.setAccessible(true);
 			setValue(field, convertedObject);
 		} catch (Exception e) {
@@ -44,9 +37,22 @@ public class Configuration {
 		}
 	}
 
+	private String getValue(Field field) {
+		Value valueAnnotation = field.getAnnotation(Value.class);
+		String property = valueAnnotation.value();
+		String[] tokens = property.split(":");
+		String defaultValue = "";
+		if (tokens.length == 2) {
+			defaultValue = tokens[1];
+			property = tokens[0];
+		}
+		String value = properties.getProperty(property, defaultValue);
+		return value;
+	}
+
 	private void setValue(Field field, Object convertedObject) throws IllegalAccessException {
 		field.set(obj, convertedObject);
-		// TODO HW #55
+
 	}
 
 	private String getConvertionMethodName(String type) {
